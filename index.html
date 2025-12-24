@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Satisfactory 資源・中間素材 総合計算機</title>
+    <title>Satisfactory 資源・中間素材 総合計算機 (拡張版)</title>
     <style>
         body {
             font-family: 'Segoe UI', 'Meiryo', sans-serif;
@@ -183,10 +183,19 @@
                     強化鉄板: <select id="recipe_reinforced_plate" class="recipe-select">
                         <option value="reinforced_plate_normal">通常（鉄板+ネジ）</option>
                         <option value="reinforced_plate_stitched">編み上げ（鉄板+ワイヤー）</option>
+                        <option value="reinforced_plate_bolted">ボルト（鉄板+ネジ・生産増）</option>
+                    </select>
+                    ワイヤー: <select id="recipe_wire" class="recipe-select">
+                        <option value="wire_normal">通常（銅インゴット）</option>
+                        <option value="wire_iron">鉄のワイヤー（鉄インゴット）</option>
+                    </select>
+                    ローター: <select id="recipe_rotor" class="recipe-select">
+                        <option value="rotor_normal">通常（鉄棒+ネジ）</option>
+                        <option value="rotor_copper">銅のローター（銅板+ネジ）</option>
                     </select>
                     ネジ: <select id="recipe_screw" class="recipe-select">
                         <option value="screw_normal">通常（鉄棒）</option>
-                        <option value="screw_cast">鋳造（インゴット）</option>
+                        <option value="screw_cast">鋳造（鉄インゴット）</option>
                     </select>
                 </div>
             </div>
@@ -222,7 +231,7 @@
         const nameMap = {
             in_iron: "鉄鉱石", in_copper: "銅鉱石", in_coal: "石炭", in_limestone: "石灰岩",
             iron_ingot: "鉄インゴット", copper_ingot: "銅インゴット", steel_ingot: "鋼鉄インゴット",
-            iron_plate: "鉄板", iron_rod: "鉄の棒", screw: "ネジ", wire: "ワイヤー", cable: "ケーブル", concrete: "コンクリート",
+            iron_plate: "鉄板", copper_plate: "銅板", iron_rod: "鉄の棒", screw: "ネジ", wire: "ワイヤー", cable: "ケーブル", concrete: "コンクリート",
             reinforced_plate: "強化鉄板", rotor: "ローター", stator: "固定子", motor: "モーター",
             steel_beam: "鋼梁", steel_pipe: "鋼管", encased_beam: "被覆鋼梁", modular_frame: "モジュラーフレーム",
             smart_plate: "スマートプレート", versatile_framework: "多目的フレーム", automated_wiring: "自動ワイヤー"
@@ -233,15 +242,19 @@
             copper_ingot: { in: { in_copper: 1 }, out: 1, outRate: 30 },
             steel_ingot: { in: { in_iron: 3, in_coal: 3 }, out: 3, outRate: 45 },
             iron_plate: { in: { iron_ingot: 3 }, out: 2, outRate: 20 },
+            copper_plate: { in: { copper_ingot: 2 }, out: 1, outRate: 10 },
             iron_rod: { in: { iron_ingot: 1 }, out: 1, outRate: 15 },
             screw_normal: { result: "screw", in: { iron_rod: 1 }, out: 4, outRate: 40 },
             screw_cast: { result: "screw", in: { iron_ingot: 1 }, out: 5, outRate: 50 },
-            wire: { in: { copper_ingot: 1 }, out: 2, outRate: 30 },
+            wire_normal: { result: "wire", in: { copper_ingot: 1 }, out: 2, outRate: 30 },
+            wire_iron: { result: "wire", in: { iron_ingot: 25 }, out: 45, outRate: 22.5 },
             cable: { in: { wire: 2 }, out: 1, outRate: 30 },
             concrete: { in: { in_limestone: 3 }, out: 1, outRate: 15 },
             reinforced_plate_normal: { result: "reinforced_plate", in: { iron_plate: 6, screw: 12 }, out: 1, outRate: 5 },
             reinforced_plate_stitched: { result: "reinforced_plate", in: { iron_plate: 18.75, wire: 37.5 }, out: 5.625, outRate: 5.625 },
-            rotor: { in: { iron_rod: 5, screw: 25 }, out: 1, outRate: 4 },
+            reinforced_plate_bolted: { result: "reinforced_plate", in: { iron_plate: 18, screw: 50 }, out: 3, outRate: 15 },
+            rotor_normal: { result: "rotor", in: { iron_rod: 5, screw: 25 }, out: 1, outRate: 4 },
+            rotor_copper: { result: "rotor", in: { copper_plate: 6, screw: 52 }, out: 3, outRate: 11.25 },
             stator: { in: { steel_pipe: 3, wire: 15 }, out: 1, outRate: 5 },
             steel_beam: { in: { steel_ingot: 4 }, out: 1, outRate: 15 },
             steel_pipe: { in: { steel_ingot: 3 }, out: 2, outRate: 20 },
@@ -253,7 +266,7 @@
             automated_wiring: { in: { stator: 1, cable: 20 }, out: 1, outRate: 2.5 }
         };
 
-        const intermediateItems = ["iron_ingot", "copper_ingot", "steel_ingot", "iron_plate", "iron_rod", "screw", "wire", "cable", "concrete", "reinforced_plate", "rotor", "stator", "steel_beam", "steel_pipe", "encased_beam"];
+        const intermediateItems = ["iron_ingot", "copper_ingot", "steel_ingot", "iron_plate", "copper_plate", "iron_rod", "screw", "wire", "cable", "concrete", "reinforced_plate", "rotor", "stator", "steel_beam", "steel_pipe", "encased_beam"];
 
         // UI初期化
         const interDiv = document.getElementById('intermediate-inputs');
@@ -281,8 +294,12 @@
             content.innerHTML = '';
             Object.keys(recipes).sort().forEach(id => {
                 const r = recipes[id];
-                const displayName = id.includes('stitched') ? nameMap['reinforced_plate'] + '(編み上げ)' :
-                    (id.includes('cast') ? nameMap['screw'] + '(鋳造)' : nameMap[id] || nameMap[r.result] || id);
+                let displayName = nameMap[id] || nameMap[r.result] || id;
+                if (id.includes('stitched')) displayName += ' (編み上げ)';
+                if (id.includes('bolted')) displayName += ' (ボルト)';
+                if (id.includes('iron')) displayName += ' (鉄代替)';
+                if (id.includes('copper')) displayName += ' (銅代替)';
+                if (id.includes('cast')) displayName += ' (鋳造)';
 
                 if (!displayName.toLowerCase().includes(searchTerm)) return;
 
@@ -311,6 +328,8 @@
         function getActiveRecipeId(itemId) {
             if (itemId === "screw") return document.getElementById('recipe_screw').value;
             if (itemId === "reinforced_plate") return document.getElementById('recipe_reinforced_plate').value;
+            if (itemId === "wire") return document.getElementById('recipe_wire').value;
+            if (itemId === "rotor") return document.getElementById('recipe_rotor').value;
             return itemId;
         }
 
@@ -338,7 +357,7 @@
             };
             const initialStock = {}; intermediateItems.forEach(id => { initialStock[id] = parseFloat(document.getElementById(`add_${id}`).value) || 0; });
             const targetId = document.getElementById('target_id').value;
-            let low = 0, high = 5000;
+            let low = 0, high = 10000;
             for (let i = 0; i < 40; i++) {
                 let mid = (low + high) / 2; let testStock = { ...initialStock }; let res = solve(targetId, mid, testStock);
                 let ok = true; for (let [rawId, req] of Object.entries(res.totalNeeded)) { if (req > (supplyLimit[rawId] || 0)) { ok = false; break; } }
@@ -359,7 +378,13 @@
                 const amt = finalRes.productionFlow[rid];
                 const recipe = recipes[rid];
                 const machineCount = (amt / recipe.outRate).toFixed(2);
-                let name = rid.includes('stitched') ? nameMap['reinforced_plate'] + '(編み上げ)' : (rid.includes('cast') ? nameMap['screw'] + '(鋳造)' : nameMap[rid] || nameMap[recipe.result] || rid);
+                let name = nameMap[rid] || nameMap[recipe.result] || rid;
+                if (rid.includes('stitched')) name += ' (編み上げ)';
+                if (rid.includes('bolted')) name += ' (ボルト)';
+                if (rid.includes('iron')) name += ' (鉄代替)';
+                if (rid.includes('copper')) name += ' (銅代替)';
+                if (rid.includes('cast')) name += ' (鋳造)';
+
                 flowsText += `■ ${name.padEnd(12)}: ${amt.toFixed(2).padStart(8)} /分 (${machineCount} 台)\n`;
                 for (let [min, mqty] of Object.entries(recipe.in)) {
                     const totalCons = (mqty / recipe.out * amt).toFixed(2);
