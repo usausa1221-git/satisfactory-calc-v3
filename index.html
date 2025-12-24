@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Satisfactory 資源・材料内訳計算機 (代替レシピ完全対応版)</title>
+    <title>Satisfactory 資源・中間素材 総合計算機</title>
     <style>
         body {
             font-family: 'Segoe UI', 'Meiryo', sans-serif;
@@ -13,7 +13,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1250px;
             margin: auto;
             background: #2d2d2d;
             padding: 25px;
@@ -23,7 +23,7 @@
 
         .input-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
@@ -35,15 +35,39 @@
             border-left: 5px solid #fa9549;
         }
 
+        .input-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .input-item span {
+            font-size: 0.9em;
+            flex: 1;
+        }
+
         input,
         select {
             background: #111;
             color: #fa9549;
             border: 1px solid #555;
-            padding: 8px;
+            padding: 6px;
+            border-radius: 4px;
+            width: 80px;
+            text-align: right;
+        }
+
+        select#target_id,
+        select.recipe-select {
             width: 100%;
-            box-sizing: border-box;
-            margin-bottom: 5px;
+            text-align: left;
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
         }
 
         button {
@@ -51,12 +75,55 @@
             color: #000;
             border: none;
             padding: 15px;
-            width: 100%;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
             font-size: 1.2em;
-            margin: 10px 0;
+            flex: 2;
+        }
+
+        #recipe-toggle-btn {
+            background: #555;
+            color: white;
+            flex: 1;
+        }
+
+        #recipe-panel {
+            display: none;
+            background: #111;
+            border: 1px solid #fa9549;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 0.85em;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .recipe-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #fa9549;
+            padding-bottom: 5px;
+        }
+
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 10px;
+        }
+
+        .recipe-item {
+            border-bottom: 1px solid #333;
+            padding: 5px;
+        }
+
+        .recipe-name {
+            color: #fa9549;
+            font-weight: bold;
         }
 
         .results {
@@ -72,7 +139,7 @@
             border-radius: 8px;
             border: 1px solid #555;
             white-space: pre-wrap;
-            font-family: 'Consolas', 'MS Gothic', monospace;
+            font-family: 'Consolas', monospace;
             font-size: 0.9em;
             height: 550px;
             overflow-y: auto;
@@ -81,54 +148,63 @@
 
         h3 {
             color: #fa9549;
-            margin-top: 0;
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
         }
 
-        .recipe-select-group {
-            font-size: 0.85em;
-            margin-top: 10px;
-            border-top: 1px solid #555;
-            padding-top: 10px;
+        .scroll-area {
+            height: 200px;
+            overflow-y: auto;
+            padding-right: 5px;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>Satisfactory 必要材料内訳表示機 (代替レシピ対応)</h1>
+        <h1>Satisfactory 資源・中間素材 総合計算機</h1>
 
         <div class="input-grid">
             <div class="card">
-                <h3>原材料供給 (個/分)</h3>
-                鉄鉱石: <input type="number" id="in_iron" value="0">
-                銅鉱石: <input type="number" id="in_copper" value="0">
-                石炭: <input type="number" id="in_coal" value="0">
-                石灰岩: <input type="number" id="in_limestone" value="0">
+                <h3>1. 原材料供給 (個/分)</h3>
+                <div class="input-item"><span>鉄鉱石</span><input type="number" id="in_iron" value="0"></div>
+                <div class="input-item"><span>銅鉱石</span><input type="number" id="in_copper" value="0"></div>
+                <div class="input-item"><span>石炭</span><input type="number" id="in_coal" value="0"></div>
+                <div class="input-item"><span>石灰岩</span><input type="number" id="in_limestone" value="0"></div>
             </div>
             <div class="card">
-                <h3>目標アイテム</h3>
-                <select id="target_id" size="8"></select>
+                <h3>2. 中間素材の持ち込み (個/分)</h3>
+                <div class="scroll-area" id="intermediate-inputs"></div>
             </div>
             <div class="card">
-                <h3>レシピ設定</h3>
-                <div class="recipe-select-group">
-                    強化鉄板の製法:
-                    <select id="recipe_reinforced_plate">
-                        <option value="reinforced_plate_normal">通常（鉄板 + ネジ）</option>
-                        <option value="reinforced_plate_stitched">編み上げ（鉄板 + ワイヤー）</option>
+                <h3>3. 目標アイテム & レシピ</h3>
+                <select id="target_id"></select>
+                <div style="margin-top:10px; font-size:0.8em;">
+                    強化鉄板: <select id="recipe_reinforced_plate" class="recipe-select">
+                        <option value="reinforced_plate_normal">通常（鉄板+ネジ）</option>
+                        <option value="reinforced_plate_stitched">編み上げ（鉄板+ワイヤー）</option>
                     </select>
-                </div>
-                <div class="recipe-select-group">
-                    ネジの製法:
-                    <select id="recipe_screw">
-                        <option value="screw_normal">通常（鉄の棒から）</option>
-                        <option value="screw_cast">鋳造ネジ（鉄インゴットから）</option>
+                    ネジ: <select id="recipe_screw" class="recipe-select">
+                        <option value="screw_normal">通常（鉄棒）</option>
+                        <option value="screw_cast">鋳造（インゴット）</option>
                     </select>
                 </div>
             </div>
         </div>
 
-        <button onclick="calculate()">すべての資源を使い切る配分を計算</button>
+        <div class="action-bar">
+            <button id="recipe-toggle-btn" onclick="toggleRecipePanel()">レシピ一覧を表示</button>
+            <button onclick="calculate()">計算実行</button>
+        </div>
+
+        <div id="recipe-panel">
+            <div class="recipe-header">
+                <h3 style="margin:0;">マスターレシピ一覧</h3>
+                <input type="text" id="recipe-search" placeholder="アイテム名で検索..." onkeyup="renderRecipeList()"
+                    style="width: 250px; text-align: left; padding: 5px;">
+            </div>
+            <div id="recipe-content" class="recipe-grid"></div>
+        </div>
 
         <div class="results">
             <div>
@@ -136,7 +212,7 @@
                 <div id="summary" class="result-box"></div>
             </div>
             <div>
-                <h3>工程別必要流量 ＆ マシン台数内訳</h3>
+                <h3>工程別詳細 (必要マシン数・消費内訳)</h3>
                 <div id="flows" class="result-box"></div>
             </div>
         </div>
@@ -145,11 +221,11 @@
     <script>
         const nameMap = {
             in_iron: "鉄鉱石", in_copper: "銅鉱石", in_coal: "石炭", in_limestone: "石灰岩",
-            iron_ingot: "鉄のインゴット", copper_ingot: "銅のインゴット", steel_ingot: "鋼鉄のインゴット",
+            iron_ingot: "鉄インゴット", copper_ingot: "銅インゴット", steel_ingot: "鋼鉄インゴット",
             iron_plate: "鉄板", iron_rod: "鉄の棒", screw: "ネジ", wire: "ワイヤー", cable: "ケーブル", concrete: "コンクリート",
             reinforced_plate: "強化鉄板", rotor: "ローター", stator: "固定子", motor: "モーター",
-            steel_beam: "鋼梁", steel_pipe: "鋼管", encased_beam: "被覆鋼梁", modular_frame: "モジュラー・フレーム",
-            smart_plate: "スマート・プレート", versatile_framework: "多目的フレーム", automated_wiring: "自動ワイヤー"
+            steel_beam: "鋼梁", steel_pipe: "鋼管", encased_beam: "被覆鋼梁", modular_frame: "モジュラーフレーム",
+            smart_plate: "スマートプレート", versatile_framework: "多目的フレーム", automated_wiring: "自動ワイヤー"
         };
 
         const recipes = {
@@ -158,19 +234,13 @@
             steel_ingot: { in: { in_iron: 3, in_coal: 3 }, out: 3, outRate: 45 },
             iron_plate: { in: { iron_ingot: 3 }, out: 2, outRate: 20 },
             iron_rod: { in: { iron_ingot: 1 }, out: 1, outRate: 15 },
-
-            // ネジ
             screw_normal: { result: "screw", in: { iron_rod: 1 }, out: 4, outRate: 40 },
             screw_cast: { result: "screw", in: { iron_ingot: 1 }, out: 5, outRate: 50 },
-
             wire: { in: { copper_ingot: 1 }, out: 2, outRate: 30 },
             cable: { in: { wire: 2 }, out: 1, outRate: 30 },
             concrete: { in: { in_limestone: 3 }, out: 1, outRate: 15 },
-
-            // 強化鉄板
             reinforced_plate_normal: { result: "reinforced_plate", in: { iron_plate: 6, screw: 12 }, out: 1, outRate: 5 },
             reinforced_plate_stitched: { result: "reinforced_plate", in: { iron_plate: 18.75, wire: 37.5 }, out: 5.625, outRate: 5.625 },
-
             rotor: { in: { iron_rod: 5, screw: 25 }, out: 1, outRate: 4 },
             stator: { in: { steel_pipe: 3, wire: 15 }, out: 1, outRate: 5 },
             steel_beam: { in: { steel_ingot: 4 }, out: 1, outRate: 15 },
@@ -183,14 +253,60 @@
             automated_wiring: { in: { stator: 1, cable: 20 }, out: 1, outRate: 2.5 }
         };
 
-        const select = document.getElementById('target_id');
-        const targetItems = ["iron_plate", "iron_rod", "screw", "wire", "cable", "concrete", "reinforced_plate", "rotor", "stator", "motor", "modular_frame", "smart_plate", "versatile_framework", "automated_wiring"];
-        targetItems.forEach(id => {
-            const option = document.createElement('option');
-            option.value = id;
-            option.textContent = nameMap[id] || id;
-            select.appendChild(option);
+        const intermediateItems = ["iron_ingot", "copper_ingot", "steel_ingot", "iron_plate", "iron_rod", "screw", "wire", "cable", "concrete", "reinforced_plate", "rotor", "stator", "steel_beam", "steel_pipe", "encased_beam"];
+
+        // UI初期化
+        const interDiv = document.getElementById('intermediate-inputs');
+        intermediateItems.forEach(id => {
+            interDiv.innerHTML += `<div class="input-item"><span>${nameMap[id]}</span><input type="number" id="add_${id}" value="0"></div>`;
         });
+
+        const targetSelect = document.getElementById('target_id');
+        Object.keys(nameMap).filter(id => !id.startsWith('in_')).forEach(id => {
+            const opt = document.createElement('option'); opt.value = id; opt.textContent = nameMap[id];
+            if (id === "modular_frame") opt.selected = true; targetSelect.appendChild(opt);
+        });
+
+        function toggleRecipePanel() {
+            const panel = document.getElementById('recipe-panel');
+            const btn = document.getElementById('recipe-toggle-btn');
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                panel.style.display = 'block'; btn.innerText = 'レシピ一覧を閉じる'; renderRecipeList();
+            } else { panel.style.display = 'none'; btn.innerText = 'レシピ一覧を表示'; }
+        }
+
+        function renderRecipeList() {
+            const content = document.getElementById('recipe-content');
+            const searchTerm = document.getElementById('recipe-search').value.toLowerCase();
+            content.innerHTML = '';
+            Object.keys(recipes).sort().forEach(id => {
+                const r = recipes[id];
+                const displayName = id.includes('stitched') ? nameMap['reinforced_plate'] + '(編み上げ)' :
+                    (id.includes('cast') ? nameMap['screw'] + '(鋳造)' : nameMap[id] || nameMap[r.result] || id);
+
+                if (!displayName.toLowerCase().includes(searchTerm)) return;
+
+                let inText = Object.entries(r.in).map(([mat, qty]) => {
+                    const perMinute = (qty / r.out * r.outRate).toFixed(2);
+                    return `${nameMap[mat] || mat}: ${perMinute}/分`;
+                }).join('<br>　 ');
+
+                content.innerHTML += `
+                    <div class="recipe-item">
+                        <div class="recipe-name">${displayName}</div>
+                        <div style="font-size: 0.9em; margin-left: 10px;">
+                            <strong>【1台あたりの消費量】</strong><br>
+                            　 ${inText}
+                        </div>
+                        <div style="font-size: 0.9em; margin-left: 10px; color: #00ffcc;">
+                            <strong>【1台あたりの生産量】</strong><br>
+                            　 ${displayName}: ${r.outRate}/分
+                        </div>
+                    </div>
+                `;
+            });
+            if (content.innerHTML === '') content.innerHTML = '<div style="color: #888; padding: 20px;">一致するレシピが見つかりません。</div>';
+        }
 
         function getActiveRecipeId(itemId) {
             if (itemId === "screw") return document.getElementById('recipe_screw').value;
@@ -198,73 +314,57 @@
             return itemId;
         }
 
-        function getRawReq(itemId, amt) {
-            let res = { in_iron: 0, in_copper: 0, in_coal: 0, in_limestone: 0 };
-            const recipeId = getActiveRecipeId(itemId);
-            const recipe = recipes[recipeId];
-            if (!recipe) return res;
-            for (let [k, v] of Object.entries(recipe.in)) {
-                let n = (v / recipe.out) * amt;
-                if (res.hasOwnProperty(k)) res[k] += n;
-                else {
-                    let sub = getRawReq(k, n);
-                    for (let sk in res) res[sk] += sub[sk];
-                }
+        function solve(targetId, targetAmt, supply) {
+            let totalNeeded = { in_iron: 0, in_copper: 0, in_coal: 0, in_limestone: 0 };
+            let productionFlow = {};
+            function process(id, amt) {
+                if (amt <= 0.0001) return;
+                let fromSupply = Math.min(amt, supply[id] || 0);
+                amt -= fromSupply; supply[id] -= fromSupply;
+                if (amt <= 0.0001) return;
+                const rid = getActiveRecipeId(id); const recipe = recipes[rid];
+                if (!recipe) { if (totalNeeded.hasOwnProperty(id)) totalNeeded[id] += amt; return; }
+                productionFlow[rid] = (productionFlow[rid] || 0) + amt;
+                for (let [cin, cqty] of Object.entries(recipe.in)) { process(cin, (cqty / recipe.out) * amt); }
             }
-            return res;
+            process(targetId, targetAmt);
+            return { totalNeeded, productionFlow };
         }
 
         function calculate() {
-            const supply = {
-                in_iron: parseFloat(document.getElementById('in_iron').value) || 0,
-                in_copper: parseFloat(document.getElementById('in_copper').value) || 0,
-                in_coal: parseFloat(document.getElementById('in_coal').value) || 0,
-                in_limestone: parseFloat(document.getElementById('in_limestone').value) || 0
+            const supplyLimit = {
+                in_iron: parseFloat(document.getElementById('in_iron').value) || 0, in_copper: parseFloat(document.getElementById('in_copper').value) || 0,
+                in_coal: parseFloat(document.getElementById('in_coal').value) || 0, in_limestone: parseFloat(document.getElementById('in_limestone').value) || 0
             };
-            const targetItemId = document.getElementById('target_id').value;
-            if (!targetItemId) return;
-
-            const unitReq = getRawReq(targetItemId, 1);
-            let maxOut = Infinity;
-            let bneck = "";
-            for (let r in unitReq) {
-                if (unitReq[r] > 0) {
-                    let l = supply[r] / unitReq[r];
-                    if (l < maxOut) { maxOut = l; bneck = r; }
-                }
+            const initialStock = {}; intermediateItems.forEach(id => { initialStock[id] = parseFloat(document.getElementById(`add_${id}`).value) || 0; });
+            const targetId = document.getElementById('target_id').value;
+            let low = 0, high = 5000;
+            for (let i = 0; i < 40; i++) {
+                let mid = (low + high) / 2; let testStock = { ...initialStock }; let res = solve(targetId, mid, testStock);
+                let ok = true; for (let [rawId, req] of Object.entries(res.totalNeeded)) { if (req > (supplyLimit[rawId] || 0)) { ok = false; break; } }
+                if (ok) low = mid; else high = mid;
             }
-            if (maxOut === Infinity || maxOut < 0) maxOut = 0;
+            const finalAmt = low; const finalRes = solve(targetId, finalAmt, { ...initialStock });
 
-            let flowMap = {};
-            function track(itemId, a) {
-                const recipeId = getActiveRecipeId(itemId);
-                const recipe = recipes[recipeId];
-                if (!recipe || a <= 0) return;
-                if (!flowMap[recipeId]) flowMap[recipeId] = { displayName: nameMap[itemId], total: 0, inputs: {} };
-                flowMap[recipeId].total += a;
-                for (let [cid, cq] of Object.entries(recipe.in)) {
-                    let needed = (cq / recipe.out) * a;
-                    flowMap[recipeId].inputs[cid] = (flowMap[recipeId].inputs[cid] || 0) + needed;
-                    track(cid, needed);
-                }
+            let summaryHtml = `【最終生産】\n${nameMap[targetId]}: ${finalAmt.toFixed(2)} /分\n\n【余剰資源・素材分析】\n------------------\n`;
+            for (let [resId, limit] of Object.entries(supplyLimit)) {
+                let used = finalRes.totalNeeded[resId] || 0; let diff = limit - used;
+                summaryHtml += `${nameMap[resId].padEnd(6)} : ${diff < 0.01 ? "★ボトルネック" : "余り " + diff.toFixed(2) + "/分"}\n`;
             }
-            track(targetItemId, maxOut);
+            document.getElementById('summary').innerText = summaryHtml;
 
-            document.getElementById('summary').innerText = `【最終生産】\n${nameMap[targetItemId]}: ${maxOut.toFixed(2)} /分\n\nボトルネック: ${nameMap[bneck] || "なし"}`;
-
-            let flowsText = `【工程別流量 ＆ 必要マシン数】\n`;
+            let flowsText = `【工程詳細 ＆ マシン1台あたりの消費量】\n`;
             flowsText += `--------------------------------------------------\n`;
-            Object.keys(flowMap).forEach(rid => {
-                const data = flowMap[rid];
+            Object.keys(finalRes.productionFlow).sort().forEach(rid => {
+                const amt = finalRes.productionFlow[rid];
                 const recipe = recipes[rid];
-                const machines = (data.total / recipe.outRate).toFixed(2);
-                let label = data.displayName;
-                if (rid.includes("stitched")) label += "(編み上げ)";
-                if (rid.includes("cast")) label += "(鋳造)";
-
-                flowsText += `■ ${label.padEnd(12)}: ${data.total.toFixed(2).padStart(8)} /分 (約 ${machines} 台)\n`;
-                for (let [mat, amt] of Object.entries(data.inputs)) {
-                    flowsText += `   ┗材料: ${nameMap[mat].padEnd(10)} -> ${amt.toFixed(2).padStart(8)} /分\n`;
+                const machineCount = (amt / recipe.outRate).toFixed(2);
+                let name = rid.includes('stitched') ? nameMap['reinforced_plate'] + '(編み上げ)' : (rid.includes('cast') ? nameMap['screw'] + '(鋳造)' : nameMap[rid] || nameMap[recipe.result] || rid);
+                flowsText += `■ ${name.padEnd(12)}: ${amt.toFixed(2).padStart(8)} /分 (${machineCount} 台)\n`;
+                for (let [min, mqty] of Object.entries(recipe.in)) {
+                    const totalCons = (mqty / recipe.out * amt).toFixed(2);
+                    const perMachine = (mqty / recipe.out * recipe.outRate).toFixed(2);
+                    flowsText += `   ┗材料: ${nameMap[min].padEnd(10)} -> ${totalCons.padStart(8)} /分 (1台につき ${perMachine.padStart(5)} /分)\n`;
                 }
                 flowsText += `\n`;
             });
@@ -272,6 +372,5 @@
         }
     </script>
 </body>
-
 
 </html>
