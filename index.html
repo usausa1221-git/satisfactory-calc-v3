@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Satisfactory 資源・材料内訳計算機 (代替レシピ完全対応版)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', 'Meiryo', sans-serif;
+            background: #1a1a1a;
+            color: #eee;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: #2d2d2d;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #444;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: #383838;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #fa9549;
+        }
+
+        input,
+        select {
+            background: #111;
+            color: #fa9549;
+            border: 1px solid #555;
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 5px;
+        }
+
+        button {
+            background: #fa9549;
+            color: #000;
+            border: none;
+            padding: 15px;
+            width: 100%;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: 1fr 1.8fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .result-box {
+            background: #111;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #555;
+            white-space: pre-wrap;
+            font-family: 'Consolas', 'MS Gothic', monospace;
+            font-size: 0.9em;
+            height: 550px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+
+        h3 {
+            color: #fa9549;
+            margin-top: 0;
+        }
+
+        .recipe-select-group {
+            font-size: 0.85em;
+            margin-top: 10px;
+            border-top: 1px solid #555;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Satisfactory 必要材料内訳表示機 (代替レシピ対応)</h1>
+
+        <div class="input-grid">
+            <div class="card">
+                <h3>原材料供給 (個/分)</h3>
+                鉄鉱石: <input type="number" id="in_iron" value="0">
+                銅鉱石: <input type="number" id="in_copper" value="0">
+                石炭: <input type="number" id="in_coal" value="0">
+                石灰岩: <input type="number" id="in_limestone" value="0">
+            </div>
+            <div class="card">
+                <h3>目標アイテム</h3>
+                <select id="target_id" size="8"></select>
+            </div>
+            <div class="card">
+                <h3>レシピ設定</h3>
+                <div class="recipe-select-group">
+                    強化鉄板の製法:
+                    <select id="recipe_reinforced_plate">
+                        <option value="reinforced_plate_normal">通常（鉄板 + ネジ）</option>
+                        <option value="reinforced_plate_stitched">編み上げ（鉄板 + ワイヤー）</option>
+                    </select>
+                </div>
+                <div class="recipe-select-group">
+                    ネジの製法:
+                    <select id="recipe_screw">
+                        <option value="screw_normal">通常（鉄の棒から）</option>
+                        <option value="screw_cast">鋳造ネジ（鉄インゴットから）</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="calculate()">すべての資源を使い切る配分を計算</button>
+
+        <div class="results">
+            <div>
+                <h3>生産サマリー</h3>
+                <div id="summary" class="result-box"></div>
+            </div>
+            <div>
+                <h3>工程別必要流量 ＆ マシン台数内訳</h3>
+                <div id="flows" class="result-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nameMap = {
+            in_iron: "鉄鉱石", in_copper: "銅鉱石", in_coal: "石炭", in_limestone: "石灰岩",
+            iron_ingot: "鉄のインゴット", copper_ingot: "銅のインゴット", steel_ingot: "鋼鉄のインゴット",
+            iron_plate: "鉄板", iron_rod: "鉄の棒", screw: "ネジ", wire: "ワイヤー", cable: "ケーブル", concrete: "コンクリート",
+            reinforced_plate: "強化鉄板", rotor: "ローター", stator: "ステーター", motor: "モーター",
+            steel_beam: "鋼梁", steel_pipe: "鋼鉄のパイプ", encased_beam: "被覆鋼梁", modular_frame: "モジュラー・フレーム",
+            smart_plate: "スマート・プレート", versatile_framework: "多目的フレーム", automated_wiring: "自動ワイヤー"
+        };
+
+        const recipes = {
+            iron_ingot: { in: { in_iron: 1 }, out: 1, outRate: 30 },
+            copper_ingot: { in: { in_copper: 1 }, out: 1, outRate: 30 },
+            steel_ingot: { in: { in_iron: 3, in_coal: 3 }, out: 3, outRate: 45 },
+            iron_plate: { in: { iron_ingot: 3 }, out: 2, outRate: 20 },
+            iron_rod: { in: { iron_ingot: 1 }, out: 1, outRate: 15 },
+
+            // ネジ
+            screw_normal: { result: "screw", in: { iron_rod: 1 }, out: 4, outRate: 40 },
+            screw_cast: { result: "screw", in: { iron_ingot: 1 }, out: 5, outRate: 50 },
+
+            wire: { in: { copper_ingot: 1 }, out: 2, outRate: 30 },
+            cable: { in: { wire: 2 }, out: 1, outRate: 30 },
+            concrete: { in: { in_limestone: 3 }, out: 1, outRate: 15 },
+
+            // 強化鉄板
+            reinforced_plate_normal: { result: "reinforced_plate", in: { iron_plate: 6, screw: 12 }, out: 1, outRate: 5 },
+            reinforced_plate_stitched: { result: "reinforced_plate", in: { iron_plate: 18.75, wire: 37.5 }, out: 5.625, outRate: 5.625 },
+
+            rotor: { in: { iron_rod: 5, screw: 25 }, out: 1, outRate: 4 },
+            stator: { in: { steel_pipe: 3, wire: 15 }, out: 1, outRate: 5 },
+            steel_beam: { in: { steel_ingot: 4 }, out: 1, outRate: 15 },
+            steel_pipe: { in: { steel_ingot: 3 }, out: 1, outRate: 20 },
+            encased_beam: { in: { steel_beam: 6, concrete: 8 }, out: 1, outRate: 6 },
+            motor: { in: { rotor: 2, stator: 2 }, out: 1, outRate: 5 },
+            modular_frame: { in: { reinforced_plate: 3, iron_rod: 12 }, out: 2, outRate: 2 },
+            smart_plate: { in: { reinforced_plate: 1, rotor: 1 }, out: 2, outRate: 2 },
+            versatile_framework: { in: { modular_frame: 1, steel_beam: 12 }, out: 2, outRate: 2 },
+            automated_wiring: { in: { stator: 1, cable: 20 }, out: 1, outRate: 2.5 }
+        };
+
+        const select = document.getElementById('target_id');
+        const targetItems = ["iron_plate", "iron_rod", "screw", "wire", "cable", "concrete", "reinforced_plate", "rotor", "stator", "motor", "modular_frame", "smart_plate", "versatile_framework", "automated_wiring"];
+        targetItems.forEach(id => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = nameMap[id] || id;
+            select.appendChild(option);
+        });
+
+        function getActiveRecipeId(itemId) {
+            if (itemId === "screw") return document.getElementById('recipe_screw').value;
+            if (itemId === "reinforced_plate") return document.getElementById('recipe_reinforced_plate').value;
+            return itemId;
+        }
+
+        function getRawReq(itemId, amt) {
+            let res = { in_iron: 0, in_copper: 0, in_coal: 0, in_limestone: 0 };
+            const recipeId = getActiveRecipeId(itemId);
+            const recipe = recipes[recipeId];
+            if (!recipe) return res;
+            for (let [k, v] of Object.entries(recipe.in)) {
+                let n = (v / recipe.out) * amt;
+                if (res.hasOwnProperty(k)) res[k] += n;
+                else {
+                    let sub = getRawReq(k, n);
+                    for (let sk in res) res[sk] += sub[sk];
+                }
+            }
+            return res;
+        }
+
+        function calculate() {
+            const supply = {
+                in_iron: parseFloat(document.getElementById('in_iron').value) || 0,
+                in_copper: parseFloat(document.getElementById('in_copper').value) || 0,
+                in_coal: parseFloat(document.getElementById('in_coal').value) || 0,
+                in_limestone: parseFloat(document.getElementById('in_limestone').value) || 0
+            };
+            const targetItemId = document.getElementById('target_id').value;
+            if (!targetItemId) return;
+
+            const unitReq = getRawReq(targetItemId, 1);
+            let maxOut = Infinity;
+            let bneck = "";
+            for (let r in unitReq) {
+                if (unitReq[r] > 0) {
+                    let l = supply[r] / unitReq[r];
+                    if (l < maxOut) { maxOut = l; bneck = r; }
+                }
+            }
+            if (maxOut === Infinity || maxOut < 0) maxOut = 0;
+
+            let flowMap = {};
+            function track(itemId, a) {
+                const recipeId = getActiveRecipeId(itemId);
+                const recipe = recipes[recipeId];
+                if (!recipe || a <= 0) return;
+                if (!flowMap[recipeId]) flowMap[recipeId] = { displayName: nameMap[itemId], total: 0, inputs: {} };
+                flowMap[recipeId].total += a;
+                for (let [cid, cq] of Object.entries(recipe.in)) {
+                    let needed = (cq / recipe.out) * a;
+                    flowMap[recipeId].inputs[cid] = (flowMap[recipeId].inputs[cid] || 0) + needed;
+                    track(cid, needed);
+                }
+            }
+            track(targetItemId, maxOut);
+
+            document.getElementById('summary').innerText = `【最終生産】\n${nameMap[targetItemId]}: ${maxOut.toFixed(2)} /分\n\nボトルネック: ${nameMap[bneck] || "なし"}`;
+
+            let flowsText = `【工程別流量 ＆ 必要マシン数】\n`;
+            flowsText += `--------------------------------------------------\n`;
+            Object.keys(flowMap).forEach(rid => {
+                const data = flowMap[rid];
+                const recipe = recipes[rid];
+                const machines = (data.total / recipe.outRate).toFixed(2);
+                let label = data.displayName;
+                if (rid.includes("stitched")) label += "(編み上げ)";
+                if (rid.includes("cast")) label += "(鋳造)";
+
+                flowsText += `■ ${label.padEnd(12)}: ${data.total.toFixed(2).padStart(8)} /分 (約 ${machines} 台)\n`;
+                for (let [mat, amt] of Object.entries(data.inputs)) {
+                    flowsText += `   ┗材料: ${nameMap[mat].padEnd(10)} -> ${amt.toFixed(2).padStart(8)} /分\n`;
+                }
+                flowsText += `\n`;
+            });
+            document.getElementById('flows').innerText = flowsText;
+        }
+    </script>
+</body>
+
+</html>
