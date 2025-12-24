@@ -147,8 +147,8 @@
             in_iron: "鉄鉱石", in_copper: "銅鉱石", in_coal: "石炭", in_limestone: "石灰岩",
             iron_ingot: "鉄のインゴット", copper_ingot: "銅のインゴット", steel_ingot: "鋼鉄のインゴット",
             iron_plate: "鉄板", iron_rod: "鉄の棒", screw: "ネジ", wire: "ワイヤー", cable: "ケーブル", concrete: "コンクリート",
-            reinforced_plate: "強化鉄板", rotor: "ローター", stator: "ステーター", motor: "モーター",
-            steel_beam: "鋼梁", steel_pipe: "鋼鉄のパイプ", encased_beam: "被覆鋼梁", modular_frame: "モジュラー・フレーム",
+            reinforced_plate: "強化鉄板", rotor: "ローター", stator: "固定子", motor: "モーター",
+            steel_beam: "鋼梁", steel_pipe: "鋼管", encased_beam: "被覆鋼梁", modular_frame: "モジュラー・フレーム",
             smart_plate: "スマート・プレート", versatile_framework: "多目的フレーム", automated_wiring: "自動ワイヤー"
         };
 
@@ -174,7 +174,7 @@
             rotor: { in: { iron_rod: 5, screw: 25 }, out: 1, outRate: 4 },
             stator: { in: { steel_pipe: 3, wire: 15 }, out: 1, outRate: 5 },
             steel_beam: { in: { steel_ingot: 4 }, out: 1, outRate: 15 },
-            steel_pipe: { in: { steel_ingot: 3 }, out: 1, outRate: 20 },
+            steel_pipe: { in: { steel_ingot: 3 }, out: 2, outRate: 20 },
             encased_beam: { in: { steel_beam: 6, concrete: 8 }, out: 1, outRate: 6 },
             motor: { in: { rotor: 2, stator: 2 }, out: 1, outRate: 5 },
             modular_frame: { in: { reinforced_plate: 3, iron_rod: 12 }, out: 2, outRate: 2 },
@@ -272,5 +272,6 @@
         }
     </script>
 </body>
+
 
 </html>
